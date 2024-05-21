@@ -1,61 +1,51 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import Quill from 'quill';
-import 'quill/dist/quill.snow.css';
+import { useEffect, useState, useCallback } from 'react';
+import 'react-quill/dist/quill.snow.css';
 import debounce from 'lodash.debounce';
-import DiffMatchPatch from 'diff-match-patch';
-
-const dmp = new DiffMatchPatch();
+import ReactQuill from 'react-quill';
 
 const Editor = () => {
-    const editorRef = useRef<HTMLDivElement>(null);
     const [content, setContent] = useState<string>('');
 
-    // useEffect(() => {
-    //     if (editorRef.current) {
-    //         const quill = new Quill(editorRef.current, {
-    //             theme: 'snow'
-    //         });
+    useEffect(() => {
+        async function fetchContent() {
+            try {
+                const response = await fetch('/api/getContent');
+                const data = await response.json();
+                setContent(data.content || '');
+            } catch (error) {
+                console.error('Error fetching content:', error);
+            }
+        }
 
-    //         const handleTextChange = debounce(() => {
-    //             const newContent = quill.root.innerHTML;
-    //             const diffs = dmp.diff_main(content, newContent);
-    //             dmp.diff_cleanupSemantic(diffs);
-    //             setContent(newContent);
-    //             saveContent(diffs);
-    //         }, 1000);
+        fetchContent();
+    }, []);
 
-    //         quill.on('text-change', handleTextChange);
+    const saveContent = useCallback(debounce(async (diffs: string) => {
+        try {
+            console.log('Saving content:', diffs);
+            await fetch('/api/saveContent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ diffs })
+            });
+        } catch (error) {
+            console.error('Error saving content:', error);
+        }
+    }, 1500), []);
 
-    //         async function fetchContent() {
-    //             const response = await fetch('/api/getContent');
-    //             const data = await response.json();
-    //             quill.root.innerHTML = data.content || '';
-    //             setContent(data.content || '');
-    //         }
-
-    //         fetchContent();
-
-    //         return () => {
-    //             quill.off('text-change', handleTextChange);
-    //         };
-    //     }
-    // }, [content]);
-
-    const saveContent = async (diffs: DiffMatchPatch.Diff[]) => {
-        await fetch('/api/saveContent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ diffs })
-        });
+    const handleChange = (newContent: string) => {
+        setContent(newContent);
+        saveContent(newContent);
     };
 
     return (
-        <div>
-            <div ref={editorRef} style={{ height: '400px' }} />
+        <div className=' mt-20'>
+            <ReactQuill style={{height:300}} className=' border-solid border-2 border-purple-500' theme="snow" value={content} onChange={handleChange} />
         </div>
     );
 };
